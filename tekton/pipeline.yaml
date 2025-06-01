@@ -51,11 +51,16 @@ spec:
     - name: tests
       taskRef:
         name: nose
+      params:
+        - name: database_uri
+          value: "postgresql://userCOA:KfuwmnxE34BGdLxn@postgresql:5432/sampledb"
+        - name: args
+          value: "-v --with-spec --spec-color"
       workspaces:
         - name: source
           workspace: pipeline-workspace
       runAfter:
-        - lint
+        - clone
     - name: build
       taskRef:
         name: echo

@@ -49,7 +49,6 @@ spec:
           # Delete files and directories starting with .. plus any other character
           rm -rf "${WORKSPACE_SOURCE_PATH}"/..?*
         fi
-
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
@@ -90,10 +89,17 @@ spec:
       description: Arguments to pass to nose
       type: string
       default: "-v --with-spec --spec-color"
+    - name: database_uri
+      description: Database connection string
+      type: string
+      default: "postgresql://userCOA:KfuwmnxE34BGdLxn@postgresql:5432/sampledb"
   steps:
     - name: nosetests
       image: python:3.9-slim
       workingDir: $(workspaces.source.path)
+      env:
+        - name: DATABASE_URI
+          value: $(params.database_uri)
       script: |
         #!/bin/bash
         pip install -r requirements.txt
