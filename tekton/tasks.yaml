@@ -50,3 +50,51 @@ spec:
           rm -rf "${WORKSPACE_SOURCE_PATH}"/..?*
         fi
 
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: checkout
+spec:
+  description: Clone the code repository to the workspace.
+  params:
+    - name: git-url
+      type: string
+      description: git repository url to clone
+    - name: git-revision
+      type: string
+      description: git revision to checkout (branch, tag, sha, ref…)
+      default: main
+  workspaces:
+    - name: output
+      description: The git repo will be cloned onto the volume backing this workspace
+  steps:
+    - name: clone
+      image: alpine/git:latest
+      script: |
+        #!/bin/sh
+        cd $(workspaces.output.path)
+        git clone $(params.git-url) .
+        git checkout $(params.git-revision)
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: nose
+spec:
+  description: This task will run nosetests on the provided input.
+  workspaces:
+    - name: source
+  params:
+    - name: args
+      description: Arguments to pass to nose
+      type: string
+      default: "-v --with-spec --spec-color"
+  steps:
+    - name: nosetests
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        pip install -r requirements.txt
+        nosetests $(params.args)

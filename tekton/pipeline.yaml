@@ -1,38 +1,69 @@
-#
-# This pipeline needs the following tasks from Tekton Hub
-#   - git-clone
-#   - flake8
-#
----
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
-metadata:  
+metadata:
   name: cd-pipeline
 spec:
-  workspaces:
-    - name: pipeline-workspace
+  description: The Continuous Delivery pipeline
   params:
     - name: repo-url
+      type: string
+      description: The git repository URL to clone from.
     - name: branch
+      type: string
+      description: The git branch to clone.
       default: main
+  workspaces:
+    - name: pipeline-workspace
+      description: pipeline workspace
   tasks:
     - name: init
-      workspaces:
-        - name: source
-          workspace: pipeline-workspace          
       taskRef:
         name: cleanup
-
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
     - name: clone
+      taskRef:
+        name: checkout
+      params:
+        - name: git-url
+          value: $(params.repo-url)
+        - name: git-revision
+          value: $(params.branch)
       workspaces:
         - name: output
-          workspace: pipeline-workspace          
-      taskRef:
-        name: git-clone
-      params:
-      - name: url
-        value: $(params.repo-url)
-      - name: revision
-        value: $(params.branch)
+          workspace: pipeline-workspace
       runAfter:
         - init
+    - name: lint
+      taskRef:
+        name: echo
+      params:
+        - name: message
+          value: "Calling Flake8 linter..."
+      runAfter:
+        - clone
+    - name: tests
+      taskRef:
+        name: nose
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+      runAfter:
+        - lint
+    - name: build
+      taskRef:
+        name: echo
+      params:
+        - name: message
+          value: "Building image..."
+      runAfter:
+        - tests
+    - name: deploy
+      taskRef:
+        name: echo
+      params:
+        - name: message
+          value: "Deploying to OpenShift..."
+      runAfter:
+        - build
