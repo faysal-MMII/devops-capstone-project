@@ -129,14 +129,14 @@ class TestAccountService(TestCase):
         account = AccountFactory()
         response = self.client.post("/accounts", json=account.serialize())
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        
+
         # Get the account ID from the response
         account_id = response.get_json()["id"]
-        
+
         # Read the account back
         response = self.client.get(f"/accounts/{account_id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        
+
         # Check that the returned data matches what we sent
         data = response.get_json()
         self.assertEqual(data["name"], account.name)
@@ -148,15 +148,15 @@ class TestAccountService(TestCase):
         account = AccountFactory()
         response = self.client.post(BASE_URL, json=account.serialize())
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        
+
         # Get the account ID and update it
         account_id = response.get_json()["id"]
         new_account_data = account.serialize()
         new_account_data["name"] = "Something Known"
-        
+
         response = self.client.put(f"{BASE_URL}/{account_id}", json=new_account_data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        
+
         # Check that the name was updated
         updated_account = response.get_json()
         self.assertEqual(updated_account["name"], "Something Known")
@@ -173,12 +173,12 @@ class TestAccountService(TestCase):
         account = AccountFactory()
         response = self.client.post(BASE_URL, json=account.serialize())
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        
+
         # Delete the account
         account_id = response.get_json()["id"]
         response = self.client.delete(f"{BASE_URL}/{account_id}")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        
+
         # Verify it's deleted
         response = self.client.get(f"{BASE_URL}/{account_id}")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -190,7 +190,7 @@ class TestAccountService(TestCase):
 
     def test_list_accounts(self):
         """It should List all accounts"""
-        accounts = self._create_accounts(5)
+        self._create_accounts(5)  # Now we don't assign to unused variable
         response = self.client.get(BASE_URL)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.get_json()
