@@ -12,6 +12,14 @@ spec:
       type: string
       description: The git branch to clone.
       default: main
+    - name: build-image
+      type: string
+      description: The name of the image to build
+      default: "image-registry.openshift-image-registry.svc:5000/$SN_ICR_NAMESPACE/accounts:1"
+    - name: deployment-name
+      type: string
+      description: The name of the OpenShift deployment
+      default: "accounts"
   workspaces:
     - name: pipeline-workspace
       description: pipeline workspace
@@ -63,17 +71,32 @@ spec:
         - clone
     - name: build
       taskRef:
-        name: echo
+        name: buildah
+        kind: ClusterTask
       params:
-        - name: message
-          value: "Building image..."
+        - name: IMAGE
+          value: $(params.build-image)
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
       runAfter:
+        - lint
         - tests
     - name: deploy
       taskRef:
-        name: echo
+        name: openshift-client
+        kind: ClusterTask
       params:
-        - name: message
-          value: "Deploying to OpenShift..."
+        - name: SCRIPT
+          value: |
+            echo "Updating manifest..."
+            sed -i "s|IMAGE_NAME_HERE|$(params.build-image)|g" deploy/account.yaml
+            cat deploy/account.yaml
+            echo "Deploying to OpenShift..."
+            oc apply -f deploy/
+            oc get pods -l app=accounts
+      workspaces:
+        - name: manifest-dir
+          workspace: pipeline-workspace
       runAfter:
         - build
