@@ -12,6 +12,14 @@ spec:
       type: string
       description: The git branch to clone.
       default: main
+    - name: build-image
+      type: string
+      description: The name of the image to build
+      default: "image-registry.openshift-image-registry.svc:5000/$SN_ICR_NAMESPACE/accounts:1"
+    - name: deployment-name
+      type: string
+      description: The name of the OpenShift deployment
+      default: "accounts"
   workspaces:
     - name: pipeline-workspace
       description: pipeline workspace
@@ -24,11 +32,11 @@ spec:
           workspace: pipeline-workspace
     - name: clone
       taskRef:
-        name: checkout
+        name: git-clone
       params:
-        - name: git-url
+        - name: url
           value: $(params.repo-url)
-        - name: git-revision
+        - name: revision
           value: $(params.branch)
       workspaces:
         - name: output
@@ -37,33 +45,58 @@ spec:
         - init
     - name: lint
       taskRef:
-        name: echo
+        name: flake8
       params:
-        - name: message
-          value: "Calling Flake8 linter..."
+        - name: image
+          value: python:3.9-slim
+        - name: args
+          value: ["--count", "--max-complexity=10", "--max-line-length=127", "--statistics"]
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
       runAfter:
         - clone
     - name: tests
       taskRef:
         name: nose
+      params:
+        - name: database_uri
+          value: "postgresql://userCOA:KfuwmnxE34BGdLxn@postgresql:5432/sampledb"
+        - name: args
+          value: "-v --with-spec --spec-color"
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+      runAfter:
+        - clone
+    - name: build
+      taskRef:
+        name: buildah
+        kind: ClusterTask
+      params:
+        - name: IMAGE
+          value: $(params.build-image)
       workspaces:
         - name: source
           workspace: pipeline-workspace
       runAfter:
         - lint
-    - name: build
-      taskRef:
-        name: echo
-      params:
-        - name: message
-          value: "Building image..."
-      runAfter:
         - tests
     - name: deploy
       taskRef:
-        name: echo
+        name: openshift-client
+        kind: ClusterTask
       params:
-        - name: message
-          value: "Deploying to OpenShift..."
+        - name: SCRIPT
+          value: |
+            echo "Updating manifest..."
+            sed -i "s|IMAGE_NAME_HERE|$(params.build-image)|g" deploy/account.yaml
+            cat deploy/account.yaml
+            echo "Deploying to OpenShift..."
+            oc apply -f deploy/
+            oc get pods -l app=accounts
+      workspaces:
+        - name: manifest-dir
+          workspace: pipeline-workspace
       runAfter:
         - build
